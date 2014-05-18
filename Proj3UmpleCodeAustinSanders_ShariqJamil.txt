@@ -1,0 +1,219 @@
+//Austin Sanders and Shariq Jamil
+class AirTrafficControl{
+	1 -- * Plane;
+	1 -> * Runway;
+	public boolean givePermission(Runway rw){
+        rw.setNumOfPlanes(rw.getNumOfPlanes() + 1);
+		return rw.getAvailable(); 
+	}
+  public void emergencyActivated(){
+    
+    for(int i = 0; i<runwaies.size(); i++   ){
+      runwaies.get(i).emergencyActivated();
+    
+    }
+    System.out.println("Emergency state activated  on all runways");
+  }
+  
+  public void emergencyDeactivated(){
+    for(int i = 0; i<runwaies.size(); i++ ){
+      runwaies.get(i).emergencyDeactivated();
+    
+      
+    }
+    System.out.println("Emergency state deactivated on all runways");
+  }
+  
+  public void foundHazard(Runway rw){
+    int numOfPersonnel = rw.getRunwayPersonnels().size();
+    for(int i = 0; i<numOfPersonnel; i++){
+      if (rw.getRunwayPersonnel(i).getBusy() ==false){
+        rw.getRunwayPersonnel(i).foundHazard();
+      }
+    }
+  }
+}
+
+class Runway{
+    AirTrafficControl atc;
+    int id;
+	Boolean available = true;
+	Integer capacity;
+	Integer numOfPlanes = 0;
+	Boolean full =false;
+	Boolean eastWest =true;
+	Boolean functional =true;
+    trace eastWest;
+
+	  runway_state_machine{
+	    Free{
+	      emergencyActivated()/{setAvailable(false);} -> Emergency;
+         planeLanding() [getNumOfPlanes() + 1 < getCapacity()]/{setNumOfPlanes(getNumOfPlanes() + 1);} -> IncomingPlane; planeLanding()/{setNumOfPlanes(getNumOfPlanes() + 1);} -> IncomingPlane;
+	      
+	      maintenance() -> NeedsMaintenance;
+          after(15)/{changeDirection();} -> Free;
+	    }
+	    /*Busy{
+          entry/{setAvailable(false);}
+          exit/{setAvailable(true);}
+        */
+	          NeedsMaintenance{     
+                entry/{System.out.println("Runway # " + id + " is undergoing maintenance.");}
+                entry/{setAvailable(false);}
+                exit/{setAvailable(true);}
+	             after(10) ->Free;
+	          }
+	          IncomingPlane{
+                entry/{setAvailable(false);}
+                exit/{setAvailable(true);}
+                planeDepart() ->Free;
+	          }
+
+	      Emergency{
+            entry/{System.out.println("Entered Emergency State");}
+	        emergencyDeactivated()/{setAvailable(true);} -> Free;
+            exit/{System.out.println("Runway Available");}
+	      }
+	    //}
+	  }
+  
+  private void changeDirection(){
+    boolean newDirection = !getEastWest();
+    setEastWest(newDirection);
+  }
+  
+}
+
+
+class Person{
+	String name;
+	Integer id;
+}
+
+class Customer{
+    20..100 -- 1 Plane;
+	isA Person;
+	Integer flightNumber;
+}
+
+class Personnel{
+	isA Person;
+    String jobTitle;
+}
+
+class RunwayPersonnel{
+	3..5 -- 1 Runway;
+	isA Personnel;
+    boolean busy = false;
+  runwaypersonnel_state_machine{
+    notBusy{
+      foundHazard()[getJobTitle().equals("Surface Maintainer")] -> maintainingSurface;
+    }
+    
+    maintainingSurface{
+      entry/{System.out.println(getName() + " the " + getJobTitle() + " is maintaining the runway's surface");}
+      entry/{runway.maintenance();}
+      entry/{setBusy(true);}
+      exit/{setBusy(false);}
+            after(10) -> notBusy;
+    }
+    refuelingPlane{}
+  }
+}
+
+class PlanePersonnel{
+	0..5 -- 1 Plane;
+	isA Personnel;
+	Integer flightNumber;
+    boolean busy = false;
+  
+  planepersonnel_state_machine{
+   notBusy{
+      getFuel()-> refuelingPlane;
+    }
+    refuelingPlane{
+      entry/{System.out.println(getName() + " the " + getJobTitle() + " is refueling plane # " + plane.getId()); }
+      entry/{setBusy(true);}
+      after(5) -> notBusy;
+      exit/{setBusy(false);}
+    }
+  }
+}
+
+
+
+class Plane{
+	0..* -- 1 Runway;
+	Integer flightNumber;
+	boolean hasPermission =false;
+	boolean inAir=false;
+	Integer maintenanceTime;
+	Integer flightTime;
+	Integer capacity;
+    Integer id;
+    int numOfPersonnel = 0;
+    
+	AirTrafficControl controller = aAirTrafficControl;
+	public boolean requestPermission(Runway rw){
+		hasPermission = controller.givePermission(rw);
+		return hasPermission;
+	}
+
+	plane_state_machine{
+      //onGround{
+		maintenance{
+			entry/{System.out.println("Plane # " + id + " is undergoing maintenance");}
+			entry/{maintenanceTime = 5 +  (int)(Math.random() * ((15 - 5)  +  1));}
+          do{
+            Thread.sleep(1000);
+            numOfPersonnel = getPlanePersonnels().size();
+            for(int i = 0; i < numOfPersonnel; i++){
+              if (getPlanePersonnel(i).getBusy() ==false){
+                getPlanePersonnel(i).getFuel();
+              }
+            }
+          }
+			after(maintenanceTime) -> available;
+		}
+
+		available{
+          entry/{flightNumber = 1000 +  (int)(Math.random() * ((9999 - 1000)  +  1));}
+			entry/{System.out.println("Plane is available");}
+			do{
+				while(requestPermission(runway)==false){
+					Thread.sleep(5000);
+
+				}
+			}
+          after(0)/{runway.planeDepart();} -> flying;
+
+		}
+      //}
+      //inAir{
+		flying{
+          entry/{runway.setNumOfPlanes(runway.getNumOfPlanes() -1);}
+			entry/{System.out.println("Plane #" + id + " has embarked on flight # " + flightNumber);}
+			entry/{flightTime = 5 +  (int)(Math.random() * ((15 - 5)  +  1)); }
+			after(flightTime) -> readyToLand;
+		}
+		readyToLand{
+			entry/{System.out.println("Plane # " + id + " is ready to land");}
+			do{
+				while(requestPermission(runway)==false){
+                    System.out.println("Plane # " + id +" unable to access runway  " + runway.getId());
+					Thread.sleep(1000);
+
+				}
+			}
+			after(0) -> landing;
+		}
+		landing{
+			entry/{System.out.println("Plane # " + id +" is landing");}
+			after(5)-> maintenance;
+          exit/{runway.setNumOfPlanes(runway.getNumOfPlanes() - 1);}
+          exit/{runway.planeDepart();}
+          exit/{System.out.println("Plane # " + id +" has successfully landed on runway " + runway.getId());}
+		}
+	}
+  //}
+}
